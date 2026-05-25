@@ -10,10 +10,8 @@
   },
   "private": true,
   "devDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.60.4",
-    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.0",
-    "lightningcss-win32-x64-msvc": "^1.32.0",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
-  }
+  },
+  "packageManager": "pnpm@10.11.0"
 }

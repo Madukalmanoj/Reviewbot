@@ -30,7 +30,6 @@ cpSync(resolve(root, "artifacts/reviewbot/dist"), stat, { recursive: true });
 console.log("✓ Frontend copied to .vercel/output/static/");
 
 // ── 3. Bundle Express API ─────────────────────────────────────────────────
-// Run esbuild from the api-server package so its local node_modules are used
 console.log("Bundling Express API...");
 const outFile = resolve(fnDir, "index.mjs");
 execSync(
@@ -45,12 +44,11 @@ execSync(
     "--external:mock-aws-s3",
     "--external:aws-sdk",
     "--external:nock",
-    // Fix ESM/CJS interop for pino worker threads
     "--banner:js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
   ].join(" "),
   {
     stdio: "inherit",
-    cwd: resolve(root, "artifacts/api-server")  // run from api-server so npx finds its esbuild
+    cwd: resolve(root, "artifacts/api-server")
   }
 );
 console.log("✓ API bundled to .vercel/output/functions/api/[...path].func/index.mjs");
