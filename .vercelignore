@@ -1,0 +1,10 @@
+node_modules
+.git
+.github
+.replit
+scripts
+artifacts/mockup-sandbox
+# Exclude api-server compiled output — Vercel bundles from source via vercel-build.mjs
+artifacts/api-server/dist
+# Never commit local env file — set env vars in Vercel dashboard
+.env

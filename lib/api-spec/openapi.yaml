@@ -1,0 +1,402 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: ReviewBot AI-powered GitHub PR review agent API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: scans
+    description: PR scan operations
+  - name: stats
+    description: Statistics and analytics
+  - name: webhook
+    description: GitHub webhook receiver
+  - name: settings
+    description: Configuration settings
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status with LLM provider info
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /webhook:
+    post:
+      operationId: receiveWebhook
+      tags: [webhook]
+      summary: GitHub webhook receiver
+      description: Receives GitHub PR webhook events and triggers analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookPayload"
+      responses:
+        "200":
+          description: Webhook received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookAck"
+        "401":
+          description: Invalid signature
+
+  /scans:
+    get:
+      operationId: listScans
+      tags: [scans]
+      summary: List all scans
+      description: Returns paginated list of PR scans
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: repo
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of scans
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanList"
+
+  /scans/{id}:
+    get:
+      operationId: getScan
+      tags: [scans]
+      summary: Get scan detail
+      description: Returns full scan with all findings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Scan detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scan"
+        "404":
+          description: Scan not found
+
+  /scans/trigger:
+    post:
+      operationId: triggerScan
+      tags: [scans]
+      summary: Manually trigger a PR scan
+      description: Triggers analysis of a specific PR without a webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanTriggerInput"
+      responses:
+        "202":
+          description: Scan accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanTriggerResponse"
+        "400":
+          description: Invalid input
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get dashboard statistics
+      description: Returns aggregated stats for the dashboard
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get current settings
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        activeLlmProvider:
+          type: ["string", "null"]
+        scansToday:
+          type: ["integer", "null"]
+        uptimeSeconds:
+          type: ["number", "null"]
+        indexStatus:
+          type: ["string", "null"]
+
+    WebhookPayload:
+      type: object
+      properties:
+        action:
+          type: string
+        pull_request:
+          type: object
+          properties:
+            number:
+              type: integer
+            title:
+              type: string
+            html_url:
+              type: string
+        repository:
+          type: object
+          properties:
+            full_name:
+              type: string
+
+    WebhookAck:
+      type: object
+      required: [received]
+      properties:
+        received:
+          type: boolean
+        message:
+          type: string
+
+    Finding:
+      type: object
+      required: [findingType, confidence, severity, lineRef, description, fixSuggestion]
+      properties:
+        findingType:
+          type: string
+          enum: [security, performance, style, bug]
+        cweId:
+          type: ["string", "null"]
+        confidence:
+          type: number
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        lineRef:
+          type: string
+        description:
+          type: string
+        owaspSource:
+          type: ["string", "null"]
+        fixSuggestion:
+          type: string
+
+    Scan:
+      type: object
+      required: [id, repo, prNumber, prUrl, timestamp, providerUsed, findings, riskScore, status]
+      properties:
+        id:
+          type: integer
+        repo:
+          type: string
+        prNumber:
+          type: integer
+        prUrl:
+          type: string
+        prTitle:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+          format: date-time
+        providerUsed:
+          type: string
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Finding"
+        riskScore:
+          type: string
+          enum: [critical, high, medium, low, clean]
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        errorMessage:
+          type: ["string", "null"]
+
+    ScanList:
+      type: object
+      required: [scans, total, page, limit]
+      properties:
+        scans:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scan"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ScanTriggerInput:
+      type: object
+      required: [repoFullName, prNumber]
+      properties:
+        repoFullName:
+          type: string
+        prNumber:
+          type: integer
+
+    ScanTriggerResponse:
+      type: object
+      required: [scanId, message]
+      properties:
+        scanId:
+          type: integer
+        message:
+          type: string
+
+    SeverityCount:
+      type: object
+      required: [severity, count]
+      properties:
+        severity:
+          type: string
+        count:
+          type: integer
+
+    CweCount:
+      type: object
+      required: [cweId, count]
+      properties:
+        cweId:
+          type: string
+        count:
+          type: integer
+
+    ProviderUsage:
+      type: object
+      required: [provider, count]
+      properties:
+        provider:
+          type: string
+        count:
+          type: integer
+
+    Stats:
+      type: object
+      required: [totalScans, findingsBySeverity, topCwes, providerUsage, avgConfidence, prsProtected, scansToday, criticalFindings]
+      properties:
+        totalScans:
+          type: integer
+        findingsBySeverity:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeverityCount"
+        topCwes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CweCount"
+        providerUsage:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderUsage"
+        avgConfidence:
+          type: number
+        prsProtected:
+          type: integer
+        scansToday:
+          type: integer
+        criticalFindings:
+          type: integer
+
+    Settings:
+      type: object
+      required: [activeProvider, webhookSecret, githubToken, geminiApiKey, groqApiKey]
+      properties:
+        activeProvider:
+          type: string
+          enum: [gemini, groq, ollama]
+        webhookSecret:
+          type: string
+        githubToken:
+          type: string
+        geminiApiKey:
+          type: string
+        groqApiKey:
+          type: string
+        ollamaHost:
+          type: string
+        ollamaModel:
+          type: string
+        webhookUrl:
+          type: ["string", "null"]
+
+    SettingsUpdate:
+      type: object
+      properties:
+        activeProvider:
+          type: string
+          enum: [gemini, groq, ollama]
+        webhookSecret:
+          type: string
+        githubToken:
+          type: string
+        geminiApiKey:
+          type: string
+        groqApiKey:
+          type: string
+        ollamaHost:
+          type: string
+        ollamaModel:
+          type: string
