@@ -1,8 +1,9 @@
 node_modules
 .git
 .github
-.replit
 scripts
 artifacts/mockup-sandbox
 artifacts/api-server/dist
+artifacts/reviewbot/dist
 .env
+lib/integrations

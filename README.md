@@ -5,7 +5,7 @@ AI-powered GitHub PR review agent — automatically analyzes code diffs, detects
 ## Stack
 
 - **Runtime**: Node.js 20, TypeScript 5.9, pnpm workspaces
-- **API**: Express 5 → Vercel Serverless Function (`api/webhook.ts`)
+- **API**: Express 5 → Vercel Serverless Function
 - **Frontend**: React + Vite + Tailwind CSS + shadcn/ui + Framer Motion
 - **Database**: PostgreSQL + Drizzle ORM
 - **AI**: Google Gemini 2.5 Flash (or OpenAI)
@@ -32,7 +32,7 @@ Set these in **Vercel → Project → Settings → Environment Variables**:
 ### 3. Deploy
 
 ```bash
-# Install pnpm
+# Install pnpm (if not already installed)
 npm install -g pnpm
 
 # Install dependencies
@@ -41,7 +41,7 @@ pnpm install
 # Push DB schema (run once against your production DATABASE_URL)
 DATABASE_URL=your_url pnpm --filter @workspace/db run push
 
-# Deploy
+# Deploy to Vercel
 vercel
 ```
 
@@ -78,13 +78,11 @@ pnpm --filter @workspace/reviewbot run dev
 ## Architecture
 
 ```
-api/
-  webhook.ts              ← Vercel serverless entry (wraps Express app)
-
 artifacts/
   api-server/
     src/
       app.ts              ← Express app (no app.listen — safe for serverless)
+      serverless.ts       ← Vercel entry point (re-exports app)
       index.ts            ← Local dev server only (NOT deployed)
       lib/agent.ts        ← AI analysis pipeline (Gemini 2.5 Flash)
       lib/github.ts       ← GitHub API: fetch diff, post comments
@@ -96,11 +94,24 @@ artifacts/
         events.ts         ← GET /api/events (SSE)
         health.ts         ← GET /api/healthz
   reviewbot/
-    src/                  ← React dashboard (Vite build → dist/public)
+    src/                  ← React dashboard (Vite build → dist/)
 
 lib/
   db/src/schema/          ← Drizzle ORM schema (PostgreSQL)
   api-spec/openapi.yaml   ← OpenAPI contract (source of truth)
   api-client-react/       ← Generated React Query hooks
   integrations-gemini-ai/ ← Gemini client (uses GEMINI_API_KEY)
+```
+
+## Build Output (Vercel)
+
+The `vercel-build.mjs` script uses the [Vercel Build Output API v3](https://vercel.com/docs/build-output-api/v3):
+
+```
+.vercel/output/
+  static/                        ← React frontend (served from CDN)
+  functions/api/[...path].func/  ← Express API (serverless function)
+    serverless.mjs               ← Bundled Express app
+    .vc-config.json              ← Vercel function config
+  config.json                    ← Routing rules
 ```
